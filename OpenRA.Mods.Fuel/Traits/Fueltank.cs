@@ -10,15 +10,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using OpenRA.Traits;
-using OpenRA.Mods.Common.Traits;
 
 namespace OpenRA.Mods.Fuel.Traits
-
 {
 	[Desc("This actor stores fuel. Also used for a player's global fuel reserve.")]
-	public class FueltankInfo : ITraitInfo
+	public class FuelTankInfo : TraitInfo
 	{
 		[Desc("Total capacity of the fuel tank.")]
 		public readonly int Capacity;
@@ -30,28 +27,30 @@ namespace OpenRA.Mods.Fuel.Traits
 		public readonly int LowFuelWarning = 20;
 
 		[Desc("These conditions are granted when the actor is low on fuel.")]
-		[GrantedConditionReference] public readonly string[] LowOnFuelConditions = { };
+		[GrantedConditionReference]
+		public readonly string[] LowOnFuelConditions = Array.Empty<string>();
 
-		public object Create(ActorInitializer init) { return new Fueltank(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new FuelTank(init.Self, this); }
 	}
 
-	public class Fueltank : INotifyCreated
+	public class FuelTank
 	{
-		public readonly FueltankInfo Info;
+		public readonly FuelTankInfo Info;
 		readonly Actor self;
 
-		[Sync] public int Capacity { get; private set; }
-		[Sync] public int Amount { get; private set; }
+		[Sync]
+		public int Capacity { get; private set; }
+		[Sync]
+		public int Amount { get; private set; }
 		public int Free { get { return Capacity - Amount; } }
 
 		public bool IsFull { get { return Amount == Capacity; } }
-		public bool IsLowOnFuel { get { return (Amount * 100 / Capacity) <= Info.LowFuelWarning; } }
+		public bool IsLowOnFuel { get { return Amount * 100 / Capacity <= Info.LowFuelWarning; } }
 		public bool IsEmpty { get { return Amount == 0; } }
 
-		ConditionManager cm;
-		List<int> conditionTokens;
+		readonly List<int> conditionTokens;
 
-		public Fueltank(Actor self, FueltankInfo info)
+		public FuelTank(Actor self, FuelTankInfo info)
 		{
 			Info = info;
 			Capacity = Info.Capacity;
@@ -59,11 +58,6 @@ namespace OpenRA.Mods.Fuel.Traits
 
 			this.self = self;
 			conditionTokens = new List<int>();
-		}
-
-		void INotifyCreated.Created(Actor self)
-		{
-			cm = self.TraitOrDefault<ConditionManager>();
 		}
 
 		public void AddCapacity(int amount)
@@ -107,7 +101,7 @@ namespace OpenRA.Mods.Fuel.Traits
 			return Math.Min(Amount, amount);
 		}
 
-		public void ReceiveFuel(int amount)
+		public void ReceiveFuel(Actor self, int amount)
 		{
 			var a = ReceivableFuel(amount);
 			if (a == 0)
@@ -121,10 +115,10 @@ namespace OpenRA.Mods.Fuel.Traits
 				foreach (var t in self.TraitsImplementing<INotifyFuelStateChanged>())
 					t.Refuelled(self, this);
 
-			if (cm != null && conditionTokens.Any() && !IsLowOnFuel)
+			if (conditionTokens.Count != 0 && !IsLowOnFuel)
 			{
 				foreach (var token in conditionTokens)
-					cm.RevokeCondition(self, token);
+					self.RevokeCondition(token);
 
 				conditionTokens.Clear();
 			}
@@ -148,10 +142,10 @@ namespace OpenRA.Mods.Fuel.Traits
 				foreach (var t in self.TraitsImplementing<INotifyFuelStateChanged>())
 					t.OutOfFuel(self, this);
 
-			if (cm != null && !conditionTokens.Any() && IsLowOnFuel)
+			if (conditionTokens.Count == 0 && IsLowOnFuel)
 			{
 				foreach (var condition in Info.LowOnFuelConditions)
-					conditionTokens.Add(cm.GrantCondition(self, condition));
+					conditionTokens.Add(self.GrantCondition(condition));
 			}
 		}
 	}

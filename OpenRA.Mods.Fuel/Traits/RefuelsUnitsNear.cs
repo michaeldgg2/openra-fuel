@@ -10,18 +10,18 @@
 
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using OpenRA.Graphics;
-using OpenRA.Traits;
 using OpenRA.Mods.Common;
 using OpenRA.Mods.Common.Graphics;
 using OpenRA.Mods.Common.Traits;
+using OpenRA.Primitives;
+using OpenRA.Traits;
 
 namespace OpenRA.Mods.Fuel.Traits
 {
 	[Desc("Refuels units with the `Refuelable` trait within a certain range.")]
-	public class RefuelsUnitsNearInfo : ITraitInfo, Requires<FueltankInfo>
+	public class RefuelsUnitsNearInfo : TraitInfo, Requires<FuelTankInfo>
 	{
 		[Desc("The amount of fuel transferred to the recipient per interval.")]
 		public readonly int FuelPerTransfer = 1;
@@ -44,14 +44,13 @@ namespace OpenRA.Mods.Fuel.Traits
 		[Desc("Color of the range circle.")]
 		public readonly Color RangeCircleColor = Color.Violet;
 
-		public virtual object Create(ActorInitializer init) { return new RefuelsUnitsNear(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new RefuelsUnitsNear(init.Self, this); }
 	}
 
 	public class RefuelsUnitsNear : ITick, IRefuelUnits, IRenderAboveShroudWhenSelected
 	{
 		public readonly RefuelsUnitsNearInfo Info;
-		readonly Actor self;
-		readonly Fueltank fueltank;
+		readonly FuelTank fuelTank;
 		readonly IMove move;
 
 		int ticks;
@@ -59,20 +58,19 @@ namespace OpenRA.Mods.Fuel.Traits
 		public RefuelsUnitsNear(Actor self, RefuelsUnitsNearInfo info)
 		{
 			Info = info;
-			this.self = self;
-			fueltank = self.Trait<Fueltank>();
+			fuelTank = self.Trait<FuelTank>();
 			move = self.TraitOrDefault<IMove>();
 			ticks = info.TransferInterval;
 		}
 
 		bool IRefuelUnits.CanRefuel(Actor self, Refuelable refuelable)
 		{
-			return !fueltank.IsEmpty;
+			return !fuelTank.IsEmpty;
 		}
 
 		void ITick.Tick(Actor self)
 		{
-			if (--ticks > 0 || (!Info.RefuelWhileMoving && move != null && move.IsMoving))
+			if (--ticks > 0 || (!Info.RefuelWhileMoving && move != null && move.CurrentMovementTypes != MovementType.None))
 				return;
 
 			var actorsToRefuel = self.World.FindActorsInCircle(self.CenterPosition, Info.Range)
@@ -84,21 +82,20 @@ namespace OpenRA.Mods.Fuel.Traits
 					continue;
 
 				var refuelable = actor.TraitOrDefault<Refuelable>();
-				if (refuelable == null || !refuelable.CanRefuelAt(self, this) || refuelable.Fueltank.IsFull)
+				if (refuelable == null || !refuelable.CanRefuelAt(self, this) || refuelable.FuelTank.IsFull)
 					continue;
 
-				if (!Info.RefuelMovingActors)
+				if (!Info.RefuelMovingActors && refuelable.Move.CurrentMovementTypes != MovementType.None)
 				{
-					if (refuelable.Move.IsMoving)
-						continue;
+					continue;
 				}
 
-				var otherFueltank = refuelable.Fueltank;
-				var amount = Math.Min(fueltank.AvailableFuel(Info.FuelPerTransfer), otherFueltank.ReceivableFuel(Info.FuelPerTransfer));
+				var otherFuelTank = refuelable.FuelTank;
+				var amount = Math.Min(fuelTank.AvailableFuel(Info.FuelPerTransfer), otherFuelTank.ReceivableFuel(Info.FuelPerTransfer));
 				if (amount > 0)
 				{
-					fueltank.TakeFuel(amount);
-					otherFueltank.ReceiveFuel(amount);
+					fuelTank.TakeFuel(amount);
+					otherFuelTank.ReceiveFuel(self, amount);
 				}
 			}
 
@@ -107,7 +104,7 @@ namespace OpenRA.Mods.Fuel.Traits
 
 		IEnumerable<IRenderable> IRenderAboveShroudWhenSelected.RenderAboveShroud(Actor self, WorldRenderer wr)
 		{
-			if (!Info.ShowRangeCircle || (!Info.RefuelWhileMoving && move != null && move.IsMoving) ||
+			if (!Info.ShowRangeCircle || (!Info.RefuelWhileMoving && move != null && move.CurrentMovementTypes != MovementType.None) ||
 				(self.World.RenderPlayer != null && self.Owner != self.World.RenderPlayer))
 				yield break;
 

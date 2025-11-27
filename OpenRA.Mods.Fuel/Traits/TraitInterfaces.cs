@@ -12,7 +12,8 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Fuel.Traits
 {
-	public interface IRefuelUnitsInfo : ITraitInfo { }
+	public interface IRefuelUnitsInfo : ITraitInfoInterface { }
+
 	[RequireExplicitImplementation]
 	public interface IRefuelUnits
 	{
@@ -22,8 +23,8 @@ namespace OpenRA.Mods.Fuel.Traits
 	[RequireExplicitImplementation]
 	public interface INotifyFuelStateChanged
 	{
-		void LowOnFuel(Actor self, Fueltank fueltank);
-		void OutOfFuel(Actor self, Fueltank fueltank);
-		void Refuelled(Actor self, Fueltank fueltank);
+		void LowOnFuel(Actor self, FuelTank fuelTank);
+		void OutOfFuel(Actor self, FuelTank fuelTank);
+		void Refuelled(Actor self, FuelTank fuelTank);
 	}
 }

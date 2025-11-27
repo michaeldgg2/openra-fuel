@@ -8,29 +8,29 @@
  */
 #endregion
 
-using OpenRA.Traits;
 using OpenRA.Mods.Common.Traits;
+using OpenRA.Traits;
 
 namespace OpenRA.Mods.Fuel.Traits
 {
 	[Desc("Used to store the player's global fuel reserves.")]
-	class FuelStorageInfo : ITraitInfo
+	class FuelStorageInfo : TraitInfo
 	{
 		[Desc("Capacity of this fuel storage.")]
-		public readonly int Capacity;
+		public readonly int Capacity = 0;
 
-		public object Create(ActorInitializer init) { return new FuelStorage(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new FuelStorage(init.Self, this); }
 	}
 
 	class FuelStorage : INotifyCreated, INotifyKilled, INotifySold, INotifyOwnerChanged
 	{
 		readonly FuelStorageInfo info;
-		Fueltank fuelReserve;
+		FuelTank fuelReserve;
 
 		public FuelStorage(Actor self, FuelStorageInfo info)
 		{
 			this.info = info;
-			fuelReserve = self.Owner.PlayerActor.Trait<Fueltank>();
+			fuelReserve = self.Owner.PlayerActor.Trait<FuelTank>();
 		}
 
 		void INotifyCreated.Created(Actor self)
@@ -46,7 +46,7 @@ namespace OpenRA.Mods.Fuel.Traits
 		void INotifyOwnerChanged.OnOwnerChanged(Actor self, Player oldOwner, Player newOwner)
 		{
 			fuelReserve.RemoveCapacity(info.Capacity);
-			fuelReserve = newOwner.PlayerActor.Trait<Fueltank>();
+			fuelReserve = newOwner.PlayerActor.Trait<FuelTank>();
 			fuelReserve.AddCapacity(info.Capacity);
 		}
 

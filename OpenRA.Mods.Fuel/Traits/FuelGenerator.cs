@@ -8,14 +8,14 @@
  */
 #endregion
 
-using OpenRA.Traits;
 using OpenRA.Mods.Common.Traits;
+using OpenRA.Traits;
 
 namespace OpenRA.Mods.Fuel.Traits
 {
 	[Desc("Converts resources into fuel. Fuel is either deposited into an actor's own ",
-		"fueltank or a player's global fuel reserve.")]
-	public class FuelGeneratorInfo : ITraitInfo
+		"FuelTank or a player's global fuel reserve.")]
+	public class FuelGeneratorInfo : TraitInfo
 	{
 		[Desc("Amount of fuel generated per interval.")]
 		public readonly int FuelPerInterval = 1;
@@ -27,17 +27,17 @@ namespace OpenRA.Mods.Fuel.Traits
 		[Desc("Fuel generation interval in ticks.")]
 		public readonly int Interval = 25;
 
-		[Desc("Add generated fuel to the player's global fuel reserve instead of the actor's own fueltank.")]
+		[Desc("Add generated fuel to the player's global fuel reserve instead of the actor's own FuelTank.")]
 		public readonly bool UseFuelReserve = true;
 
-		public object Create(ActorInitializer init) { return new FuelGenerator(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new FuelGenerator(init.Self, this); }
 	}
 
 	public class FuelGenerator : ITick, INotifyOwnerChanged
 	{
 		public readonly FuelGeneratorInfo Info;
 
-		Fueltank fueltank;
+		FuelTank fuelTank;
 		PlayerResources resources;
 		int ticks;
 
@@ -46,7 +46,7 @@ namespace OpenRA.Mods.Fuel.Traits
 			Info = info;
 
 			var source = info.UseFuelReserve ? self.Owner.PlayerActor : self;
-			fueltank = source.Trait<Fueltank>();
+			fuelTank = source.Trait<FuelTank>();
 			resources = self.Owner.PlayerActor.TraitOrDefault<PlayerResources>();
 			ticks = info.Interval;
 		}
@@ -55,8 +55,8 @@ namespace OpenRA.Mods.Fuel.Traits
 		{
 			if (Info.FuelPerInterval > 0 && --ticks < 0)
 			{
-				if (fueltank.ReceivableFuel(Info.FuelPerInterval) > 0 && resources.TakeCash(Info.CostPerInterval))
-					fueltank.ReceiveFuel(Info.FuelPerInterval);
+				if (fuelTank.ReceivableFuel(Info.FuelPerInterval) > 0 && resources.TakeCash(Info.CostPerInterval))
+					fuelTank.ReceiveFuel(self, Info.FuelPerInterval);
 
 				ticks = Info.Interval;
 			}
@@ -65,7 +65,7 @@ namespace OpenRA.Mods.Fuel.Traits
 		void INotifyOwnerChanged.OnOwnerChanged(Actor self, Player oldOwner, Player newOwner)
 		{
 			if (Info.UseFuelReserve)
-				fueltank = newOwner.PlayerActor.Trait<Fueltank>();
+				fuelTank = newOwner.PlayerActor.Trait<FuelTank>();
 
 			resources = newOwner.PlayerActor.TraitOrDefault<PlayerResources>();
 		}

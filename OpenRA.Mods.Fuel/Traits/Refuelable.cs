@@ -8,25 +8,34 @@
  */
 #endregion
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Activities;
-using OpenRA.Traits;
 using OpenRA.Mods.Common;
 using OpenRA.Mods.Common.Orders;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Fuel.Activities;
+using OpenRA.Traits;
 
 namespace OpenRA.Mods.Fuel.Traits
 {
 	[Desc("This actor can be refueled.")]
-	public class RefuelableInfo : ITraitInfo, Requires<NeedsFuelInfo>, Requires<FueltankInfo>, Requires<IMoveInfo>
+	public class RefuelableInfo : TraitInfo, Requires<NeedsFuelInfo>, Requires<FuelTankInfo>, Requires<IMoveInfo>
 	{
 		[Desc("List of actor types at which this actor can refuel.")]
 		[ActorReference]
-		public readonly string[] RefuelActors = { };
+		public readonly string[] RefuelActors = Array.Empty<string>();
 
-		public object Create(ActorInitializer init) { return new Refuelable(init.Self, this); }
+		[CursorReference]
+		[Desc("Cursor to display when able to refuel.")]
+		public readonly string EnterCursor = "enter";
+
+		[CursorReference]
+		[Desc("Cursor to display when unable to refuel.")]
+		public readonly string EnterBlockedCursor = "enter-blocked";
+
+		public override object Create(ActorInitializer init) { return new Refuelable(init.Self, this); }
 	}
 
 	public class Refuelable : ITick, IIssueOrder, IResolveOrder
@@ -34,7 +43,7 @@ namespace OpenRA.Mods.Fuel.Traits
 		readonly Actor self;
 		readonly Actor[] excludeSelf;
 		public readonly RefuelableInfo Info;
-		public readonly Fueltank Fueltank;
+		public readonly FuelTank FuelTank;
 		public readonly IMove Move;
 
 		RefuelsUnits refuels;
@@ -45,7 +54,7 @@ namespace OpenRA.Mods.Fuel.Traits
 			Info = info;
 			excludeSelf = new[] { self };
 
-			Fueltank = self.Trait<Fueltank>();
+			FuelTank = self.Trait<FuelTank>();
 			Move = self.Trait<IMove>();
 		}
 
@@ -60,8 +69,7 @@ namespace OpenRA.Mods.Fuel.Traits
 			if (!(host.AppearsFriendlyTo(self) && Info.RefuelActors.Contains(host.Info.Name)))
 				return false;
 
-			if (refuelsUnits == null)
-				refuelsUnits = host.TraitOrDefault<IRefuelUnits>();
+			refuelsUnits ??= host.TraitOrDefault<IRefuelUnits>();
 
 			if (refuelsUnits == null || !refuelsUnits.CanRefuel(host, this))
 				return false;
@@ -73,12 +81,13 @@ namespace OpenRA.Mods.Fuel.Traits
 		{
 			get
 			{
-				yield return new EnterAlliedActorTargeter<IRefuelUnitsInfo>("Refuel", 5,
-					target => CanRefuelAt(target), _ => !Fueltank.IsFull);
+				yield return new EnterAlliedActorTargeter<IRefuelUnitsInfo>(
+					"Refuel", 5, Info.EnterCursor, Info.EnterBlockedCursor,
+					(target, modifiers) => CanRefuelAt(target), _ => !FuelTank.IsFull);
 			}
 		}
 
-		Order IIssueOrder.IssueOrder(Actor self, IOrderTargeter order, Target target, bool queued)
+		Order IIssueOrder.IssueOrder(Actor self, IOrderTargeter order, in Target target, bool queued)
 		{
 			if (order.OrderID == "Refuel")
 				return new Order(order.OrderID, self, target, queued);

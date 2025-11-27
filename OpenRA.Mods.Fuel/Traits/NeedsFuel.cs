@@ -9,12 +9,11 @@
 #endregion
 
 using OpenRA.Traits;
-using OpenRA.Mods.Common.Traits;
 
 namespace OpenRA.Mods.Fuel.Traits
 {
 	[Desc("This actor needs fuel to move.")]
-	public class NeedsFuelInfo : ITraitInfo, Requires<FueltankInfo>
+	public class NeedsFuelInfo : TraitInfo, Requires<FuelTankInfo>
 	{
 		[Desc("Fuel consumption per cell-to-cell movement.")]
 		public readonly int Consumption = 1;
@@ -38,46 +37,44 @@ namespace OpenRA.Mods.Fuel.Traits
 		[Desc("Condition to grant when the actor is out of fuel.")]
 		public readonly string OutOfFuelCondition = null;
 
-		public object Create(ActorInitializer init) { return new NeedsFuel(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new NeedsFuel(init.Self, this); }
 	}
 
-	public class NeedsFuel : ISync, INotifyCreated, ITick, INotifyAddedToWorld, IProvideTooltipInfo
+	public class NeedsFuel : ISync, ITick, INotifyAddedToWorld, IProvideTooltipInfo
 	{
 		readonly Actor self;
 
 		public readonly NeedsFuelInfo Info;
-		public readonly Fueltank Fueltank;
+		public readonly FuelTank FuelTank;
 
-		[Sync] CPos lastLocation;
-		[Sync] bool wasEmpty;
-		[Sync] int outOfFuelTicks;
-		[Sync] int ticksSinceLastFuelIntake;
+		[Sync]
+		CPos lastLocation;
+		[Sync]
+		bool wasEmpty;
+		[Sync]
+		int outOfFuelTicks;
+		[Sync]
+		int ticksSinceLastFuelIntake;
 
-		ConditionManager cm;
 		int conditionToken;
 
 		public NeedsFuel(Actor self, NeedsFuelInfo info)
 		{
 			this.self = self;
 			Info = info;
-			Fueltank = self.Trait<Fueltank>();
+			FuelTank = self.Trait<FuelTank>();
 
-			wasEmpty = Fueltank.IsEmpty;
-		}
-
-		void INotifyCreated.Created(Actor self)
-		{
-			cm = self.TraitOrDefault<ConditionManager>();
+			wasEmpty = FuelTank.IsEmpty;
 		}
 
 		public WDist RangeFull
 		{
-			get { return new WDist(Fueltank.Capacity / Info.Consumption); }
+			get { return new WDist(FuelTank.Capacity / Info.Consumption); }
 		}
 
 		public WDist Range
 		{
-			get { return new WDist(Fueltank.Amount / Info.Consumption); }
+			get { return new WDist(FuelTank.Amount / Info.Consumption); }
 		}
 
 		void ITick.Tick(Actor self)
@@ -87,24 +84,24 @@ namespace OpenRA.Mods.Fuel.Traits
 
 			if (self.Location != lastLocation)
 			{
-				Fueltank.TakeFuel(Info.Consumption);
+				FuelTank.TakeFuel(Info.Consumption);
 				lastLocation = self.Location;
 			}
 			else if (Info.ConsumptionWhileStopped > 0 && --ticksSinceLastFuelIntake <= 0)
 			{
-					Fueltank.TakeFuel(Info.ConsumptionWhileStopped);
-					ticksSinceLastFuelIntake = Info.ConsumptionWhileStoppedInterval;
+				FuelTank.TakeFuel(Info.ConsumptionWhileStopped);
+				ticksSinceLastFuelIntake = Info.ConsumptionWhileStoppedInterval;
 			}
 
 			if (!string.IsNullOrEmpty(Info.OutOfFuelCondition))
 			{
-				if (!wasEmpty && Fueltank.IsEmpty)
-					conditionToken = cm.GrantCondition(self, Info.OutOfFuelCondition);
-				else if (wasEmpty && !Fueltank.IsEmpty)
-					cm.RevokeCondition(self, conditionToken);
+				if (!wasEmpty && FuelTank.IsEmpty)
+					conditionToken = self.GrantCondition(Info.OutOfFuelCondition);
+				else if (wasEmpty && !FuelTank.IsEmpty)
+					conditionToken = self.RevokeCondition(conditionToken);
 			}
 
-			if (Fueltank.IsEmpty && Info.KillOnOutOfFuel)
+			if (FuelTank.IsEmpty && Info.KillOnOutOfFuel)
 			{
 				if (!wasEmpty)
 					outOfFuelTicks = Info.KillOnOutOfFuelDelay;
@@ -115,7 +112,7 @@ namespace OpenRA.Mods.Fuel.Traits
 					self.Kill(self);
 			}
 
-			wasEmpty = Fueltank.IsEmpty;
+			wasEmpty = FuelTank.IsEmpty;
 		}
 
 		void INotifyAddedToWorld.AddedToWorld(Actor self)
@@ -128,6 +125,6 @@ namespace OpenRA.Mods.Fuel.Traits
 			return Info.ShowTooltip && self.Owner.IsAlliedWith(forPlayer);
 		}
 
-		string IProvideTooltipInfo.TooltipText { get { return "Fuel range: {0}/{1} cells".F(Range.Length, RangeFull.Length); } }
+		string IProvideTooltipInfo.TooltipText { get { return $"Fuel range: {Range.Length}/{RangeFull.Length} cells"; } }
 	}
 }

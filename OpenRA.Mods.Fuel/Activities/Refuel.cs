@@ -8,12 +8,13 @@
  */
 #endregion
 
-using System.Drawing;
+using System.Collections.Generic;
 using OpenRA.Activities;
 using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Traits;
-using OpenRA.Traits;
 using OpenRA.Mods.Fuel.Traits;
+using OpenRA.Primitives;
+using OpenRA.Traits;
 
 namespace OpenRA.Mods.Fuel.Activities
 {
@@ -23,7 +24,8 @@ namespace OpenRA.Mods.Fuel.Activities
 		readonly Actor host;
 		readonly Target target;
 		readonly RefuelsUnits refuels;
-		readonly Fueltank fueltank;
+		readonly FuelTank fuelTank;
+		readonly RallyPoint rallyPoint;
 
 		public Refuel(Actor self, Actor host)
 		{
@@ -31,31 +33,32 @@ namespace OpenRA.Mods.Fuel.Activities
 			this.host = host;
 			target = Target.FromActor(host);
 			refuels = host.TraitOrDefault<RefuelsUnits>();
-			fueltank = self.TraitOrDefault<Fueltank>();
+			fuelTank = self.TraitOrDefault<FuelTank>();
+			rallyPoint = host.TraitOrDefault<RallyPoint>();
 		}
 
-		public override Activity Tick(Actor self)
+		public override bool Tick(Actor self)
 		{
-			if (move == null || refuels == null || fueltank == null)
-				return NextActivity;
+			if (move == null || refuels == null || fuelTank == null)
+				return true;
 
-			self.SetTargetLine(target, Color.Green);
+			QueueChild(new MoveAdjacentTo(self, target));
+			QueueChild(move.MoveTo(host.Location + refuels.Info.RefuelOffset, 0));
+			QueueChild(new CallFunc(() => refuels.RefuelUnit(host, self)));
+			QueueChild(new WaitFor(() => fuelTank.IsFull, true));
 
-			var act = ActivityUtils.SequenceActivities(
-				new MoveAdjacentTo(self, target),
-				move.MoveTo(host.Location + refuels.Info.RefuelOffset, 0),
-				new CallFunc(() => refuels.RefuelUnit(host, self)),
-				new WaitFor(() => fueltank.IsFull, true));
+			if (rallyPoint?.Path.Count > 0)
+				self.QueueActivity(move.MoveTo(rallyPoint.Path[0], ignoreActor: host));
 
-			var rp = host.TraitOrDefault<RallyPoint>();
-			if (rp != null)
-				act.Queue(new CallFunc(() =>
-					{
-						self.SetTargetLine(Target.FromCell(self.World, rp.Location), Color.Green);
-						self.QueueActivity(move.MoveTo(rp.Location, host));
-					}));
+			return true;
+		}
 
-			return ActivityUtils.SequenceActivities(act, NextActivity);
+		public override IEnumerable<TargetLineNode> TargetLineNodes(Actor self)
+		{
+			if (rallyPoint != null)
+				yield return new TargetLineNode(Target.FromCell(self.World, rallyPoint.Path[0]), Color.Green);
+			else
+				yield return new TargetLineNode(target, Color.Green);
 		}
 	}
 }

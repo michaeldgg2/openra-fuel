@@ -9,13 +9,13 @@
 #endregion
 
 using System;
-using OpenRA.Traits;
 using OpenRA.Mods.Common.Traits;
+using OpenRA.Traits;
 
 namespace OpenRA.Mods.Fuel.Traits
 {
 	[Desc("Refuels units with the `Refuelable` trait and which are located on top of this actor.")]
-	public class RefuelsUnitsInfo : ITraitInfo, Requires<BuildingInfo>
+	public class RefuelsUnitsInfo : TraitInfo, Requires<BuildingInfo>
 	{
 		[Desc("The amount of fuel transferred to the recipient per interval.")]
 		public readonly int FuelPerTransfer = 1;
@@ -26,19 +26,19 @@ namespace OpenRA.Mods.Fuel.Traits
 		[Desc("Offset relative to the building's top-left where the actor needs to be to receive fuel.")]
 		public readonly CVec RefuelOffset = CVec.Zero;
 
-		[Desc("Retrieve fuel from the player's global fuel reserve instead of the actor's own fueltank.")]
+		[Desc("Retrieve fuel from the player's global fuel reserve instead of the actor's own FuelTank.")]
 		public readonly bool UseFuelReserve = true;
 
-		public object Create(ActorInitializer init) { return new RefuelsUnits(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new RefuelsUnits(init.Self, this); }
 	}
 
 	public class RefuelsUnits : ITick, IRefuelUnits
 	{
 		public readonly RefuelsUnitsInfo Info;
-		public readonly Fueltank Fueltank;
+		public readonly FuelTank FuelTank;
 
 		public Actor CurrentUnit { get; private set; }
-		Fueltank otherFueltank;
+		FuelTank otherFuelTank;
 		WPos cachedPosition;
 		int ticks;
 
@@ -47,12 +47,12 @@ namespace OpenRA.Mods.Fuel.Traits
 			Info = info;
 
 			var source = info.UseFuelReserve ? self.Owner.PlayerActor : self;
-			Fueltank = source.Trait<Fueltank>();
+			FuelTank = source.Trait<FuelTank>();
 		}
 
 		bool IRefuelUnits.CanRefuel(Actor self, Refuelable refuelable)
 		{
-			return !Fueltank.IsEmpty;
+			return !FuelTank.IsEmpty;
 		}
 
 		void ITick.Tick(Actor self)
@@ -69,14 +69,14 @@ namespace OpenRA.Mods.Fuel.Traits
 			if (--ticks > 0)
 				return;
 
-			if (otherFueltank.IsFull)
+			if (otherFuelTank.IsFull)
 				return;
 
-			var amount = Math.Min(Fueltank.AvailableFuel(Info.FuelPerTransfer), otherFueltank.ReceivableFuel(Info.FuelPerTransfer));
+			var amount = Math.Min(FuelTank.AvailableFuel(Info.FuelPerTransfer), otherFuelTank.ReceivableFuel(Info.FuelPerTransfer));
 			if (amount > 0)
 			{
-				Fueltank.TakeFuel(amount);
-				otherFueltank.ReceiveFuel(amount);
+				FuelTank.TakeFuel(amount);
+				otherFuelTank.ReceiveFuel(self, amount);
 			}
 
 			cachedPosition = CurrentUnit.CenterPosition;
@@ -92,7 +92,7 @@ namespace OpenRA.Mods.Fuel.Traits
 			if (refuelable == null || !refuelable.CanRefuelAt(self, this))
 				return;
 
-			otherFueltank = refuelable.Fueltank;
+			otherFuelTank = refuelable.FuelTank;
 
 			CurrentUnit = unit;
 			cachedPosition = CurrentUnit.CenterPosition;

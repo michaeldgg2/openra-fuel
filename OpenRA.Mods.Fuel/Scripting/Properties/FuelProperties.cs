@@ -8,9 +8,9 @@
  */
 #endregion
 
+using OpenRA.Mods.Fuel.Traits;
 using OpenRA.Scripting;
 using OpenRA.Traits;
-using OpenRA.Mods.Fuel.Traits;
 
 namespace OpenRA.Mods.Scripting.Properties
 {
@@ -26,19 +26,19 @@ namespace OpenRA.Mods.Scripting.Properties
 		}
 
 		[Desc("Returns the total fuel capacity.")]
-		public int FuelCapacity { get { return needsFuel.Fueltank.Capacity; } }
+		public int FuelCapacity { get { return needsFuel.FuelTank.Capacity; } }
 
 		[Desc("Returns the current fuel level.")]
-		public int FuelLevel { get { return needsFuel.Fueltank.Amount; } }
+		public int FuelLevel { get { return needsFuel.FuelTank.Amount; } }
 
 		[Desc("Returns true if the actor is out of fuel.")]
-		public bool IsOutOfFuel { get { return needsFuel.Fueltank.IsEmpty; } }
+		public bool IsOutOfFuel { get { return needsFuel.FuelTank.IsEmpty; } }
 
 		[Desc("Returns true if the actor is low on fuel.")]
-		public bool IsLowOnFuel { get { return needsFuel.Fueltank.IsLowOnFuel; } }
+		public bool IsLowOnFuel { get { return needsFuel.FuelTank.IsLowOnFuel; } }
 
 		[Desc("Returns true if the actor has full fuel.")]
-		public bool HasFullFuel { get { return needsFuel.Fueltank.IsFull; } }
+		public bool HasFullFuel { get { return needsFuel.FuelTank.IsFull; } }
 
 		[Desc("Returns the remaining range.")]
 		public WDist FuelRange { get { return needsFuel.Range; } }

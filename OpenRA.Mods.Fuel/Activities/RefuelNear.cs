@@ -8,11 +8,12 @@
  */
 #endregion
 
-using System.Drawing;
+using System.Collections.Generic;
 using OpenRA.Activities;
 using OpenRA.Mods.Common.Traits;
-using OpenRA.Traits;
 using OpenRA.Mods.Fuel.Traits;
+using OpenRA.Primitives;
+using OpenRA.Traits;
 
 namespace OpenRA.Mods.Fuel.Activities
 {
@@ -29,14 +30,19 @@ namespace OpenRA.Mods.Fuel.Activities
 			refuelsNear = host.TraitOrDefault<RefuelsUnitsNear>();
 		}
 
-		public override Activity Tick(Actor self)
+		public override bool Tick(Actor self)
 		{
 			if (move == null || refuelsNear == null)
-				return NextActivity;
+				return true;
 
-			self.SetTargetLine(target, Color.Green);
+			QueueChild(move.MoveWithinRange(target, refuelsNear.Info.Range));
 
-			return ActivityUtils.SequenceActivities(move.MoveWithinRange(target, refuelsNear.Info.Range), NextActivity);
+			return true;
+		}
+
+		public override IEnumerable<TargetLineNode> TargetLineNodes(Actor self)
+		{
+			yield return new TargetLineNode(target, Color.Green);
 		}
 	}
 }

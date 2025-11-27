@@ -8,27 +8,27 @@
  */
 #endregion
 
-using System.Drawing;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Fuel.Traits
 {
 	[Desc("Visualizes the fuel capcity of an actor.")]
-	class FuelBarInfo : ITraitInfo
+	class FuelBarInfo : TraitInfo
 	{
 		public readonly Color Color = Color.Violet;
 
-		[Desc("Use the player's global fuel reserve instead of the actor's own fueltank.")]
+		[Desc("Use the player's global fuel reserve instead of the actor's own FuelTank.")]
 		public readonly bool UseFuelReserve = false;
 
-		public object Create(ActorInitializer init) { return new FuelBar(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new FuelBar(init.Self, this); }
 	}
 
 	class FuelBar : ISelectionBar, INotifyCreated, INotifyOwnerChanged
 	{
 		readonly Actor self;
 		readonly FuelBarInfo info;
-		Fueltank fueltank;
+		FuelTank fuelTank;
 
 		public FuelBar(Actor self, FuelBarInfo info)
 		{
@@ -39,13 +39,13 @@ namespace OpenRA.Mods.Fuel.Traits
 		void INotifyCreated.Created(Actor self)
 		{
 			var source = info.UseFuelReserve ? self.Owner.PlayerActor : self;
-			fueltank = source.Trait<Fueltank>();
+			fuelTank = source.Trait<FuelTank>();
 		}
 
 		void INotifyOwnerChanged.OnOwnerChanged(Actor self, Player oldOwner, Player newOwner)
 		{
 			if (info.UseFuelReserve)
-				fueltank = newOwner.PlayerActor.Trait<Fueltank>();
+				fuelTank = newOwner.PlayerActor.Trait<FuelTank>();
 		}
 
 		float ISelectionBar.GetValue()
@@ -53,7 +53,7 @@ namespace OpenRA.Mods.Fuel.Traits
 			if (!self.Owner.IsAlliedWith(self.World.RenderPlayer))
 				return 0;
 
-			return fueltank.Amount * 1f / fueltank.Capacity;
+			return fuelTank.Amount * 1f / fuelTank.Capacity;
 		}
 
 		Color ISelectionBar.GetColor() { return info.Color; }
